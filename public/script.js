@@ -390,8 +390,7 @@ async function openTicketModal(ticketId) {
 
 function displayTicketModal(ticket, comments) {
     document.getElementById('modalTitle').textContent = `Ticket #${ticket.id} - ${ticket.title}`;
-    
-    const adminControls = currentUser.role === 'admin' ? `
+      const adminControls = currentUser.role === 'admin' ? `
         <div class="admin-controls">
             <h4>Admin Controls</h4>
             <div class="control-group">
@@ -419,6 +418,11 @@ function displayTicketModal(ticket, comments) {
                         </option>
                     `).join('')}
                 </select>
+            </div>
+            <div class="admin-actions">
+                <button onclick="deleteTicket(${ticket.id})" class="btn-delete">
+                    <i class="fas fa-trash"></i> Delete Ticket
+                </button>
             </div>
         </div>
     ` : '';
@@ -532,6 +536,49 @@ async function updateTicket(ticketId) {
     } catch (error) {
         console.error('Update ticket error:', error);
         showToast('Failed to update ticket', 'error');
+    }
+}
+
+async function deleteTicket(ticketId) {
+    // Confirm deletion
+    if (!confirm('Are you sure you want to delete this ticket? This action cannot be undone.')) {
+        return;
+    }
+    
+    try {
+        showLoading(true);
+        
+        const response = await fetch(`/api/tickets/${ticketId}`, {
+            method: 'DELETE',
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            showToast('Ticket deleted successfully!', 'success');
+            
+            // Close the modal
+            closeModal();
+            
+            // Refresh the tickets list
+            await loadTickets();
+            
+            // If we're on the dashboard, refresh it too
+            if (document.getElementById('dashboard').classList.contains('active')) {
+                await loadDashboard();
+            }
+        } else {
+            if (response.status === 403) {
+                showToast('Only administrators can delete tickets', 'error');
+            } else {
+                showToast(data.error || 'Failed to delete ticket', 'error');
+            }
+        }
+    } catch (error) {
+        console.error('Delete ticket error:', error);
+        showToast('Failed to delete ticket', 'error');
+    } finally {
+        showLoading(false);
     }
 }
 

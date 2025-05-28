@@ -199,6 +199,24 @@ body {
     background: #5a6268;
 }
 
+.btn-delete {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.btn-delete:hover {
+    background: #c82333;
+}
+
 .auth-switch {
     text-align: center;
     margin-top: 1rem;
@@ -554,6 +572,12 @@ body {
 .control-group label {
     font-weight: 600;
     margin-right: 0.5rem;
+}
+
+.admin-actions {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #ddd;
 }
 
 /* Comments */

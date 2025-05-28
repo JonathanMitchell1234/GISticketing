@@ -198,26 +198,16 @@ app.get('/api/tickets', authenticateToken, (req, res) => {
         FROM tickets t
         LEFT JOIN users creator ON t.created_by = creator.id
         LEFT JOIN users assignee ON t.assigned_to = assignee.id
+        ORDER BY t.created_at DESC
     `;
     
-    // If not admin, only show tickets created by or assigned to the user
-    if (req.user.role !== 'admin') {
-        query += ` WHERE t.created_by = ? OR t.assigned_to = ?`;
-        db.all(query, [req.user.id, req.user.id], (err, tickets) => {
-            if (err) {
-                return res.status(500).json({ error: 'Failed to fetch tickets' });
-            }
-            res.json(tickets);
-        });
-    } else {
-        query += ` ORDER BY t.created_at DESC`;
-        db.all(query, (err, tickets) => {
-            if (err) {
-                return res.status(500).json({ error: 'Failed to fetch tickets' });
-            }
-            res.json(tickets);
-        });
-    }
+    // All logged-in users can now see all tickets
+    db.all(query, (err, tickets) => {
+        if (err) {
+            return res.status(500).json({ error: 'Failed to fetch tickets' });
+        }
+        res.json(tickets);
+    });
 });
 
 app.post('/api/tickets', authenticateToken, (req, res) => {
@@ -243,7 +233,7 @@ app.put('/api/tickets/:id', authenticateToken, (req, res) => {
     const ticketId = req.params.id;
     const { status, assigned_to, priority } = req.body;
     
-    // Check if user is admin or ticket creator
+    // Check if ticket exists
     db.get(
         'SELECT * FROM tickets WHERE id = ?',
         [ticketId],
@@ -256,19 +246,21 @@ app.put('/api/tickets/:id', authenticateToken, (req, res) => {
                 return res.status(404).json({ error: 'Ticket not found' });
             }
             
-            if (req.user.role !== 'admin' && ticket.created_by !== req.user.id) {
-                return res.status(403).json({ error: 'Access denied' });
+            // All logged-in users can now update tickets, but admin-only features are restricted
+            // Regular users can only change priority (if we want to restrict further, we can add more conditions)
+            if (req.user.role !== 'admin' && (status || assigned_to !== undefined)) {
+                return res.status(403).json({ error: 'Only admins can change status or assignments' });
             }
             
             let updateQuery = 'UPDATE tickets SET updated_at = CURRENT_TIMESTAMP';
             let params = [];
             
-            if (status) {
+            if (status && req.user.role === 'admin') {
                 updateQuery += ', status = ?';
                 params.push(status);
             }
             
-            if (assigned_to !== undefined) {
+            if (assigned_to !== undefined && req.user.role === 'admin') {
                 updateQuery += ', assigned_to = ?';
                 params.push(assigned_to);
             }
@@ -289,6 +281,31 @@ app.put('/api/tickets/:id', authenticateToken, (req, res) => {
             });
         }
     );
+});
+
+// Delete ticket (admin only)
+app.delete('/api/tickets/:id', authenticateToken, isAdmin, (req, res) => {
+    const ticketId = req.params.id;
+    
+    // First delete all comments associated with the ticket
+    db.run('DELETE FROM comments WHERE ticket_id = ?', [ticketId], function(err) {
+        if (err) {
+            return res.status(500).json({ error: 'Failed to delete ticket comments' });
+        }
+        
+        // Then delete the ticket
+        db.run('DELETE FROM tickets WHERE id = ?', [ticketId], function(err) {
+            if (err) {
+                return res.status(500).json({ error: 'Failed to delete ticket' });
+            }
+            
+            if (this.changes === 0) {
+                return res.status(404).json({ error: 'Ticket not found' });
+            }
+            
+            res.json({ message: 'Ticket deleted successfully' });
+        });
+    });
 });
 
 // Get users (for assignment dropdown)
