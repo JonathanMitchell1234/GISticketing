@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
 const cors = require('cors');
 const path = require('path');
+const { Bonjour } = require('bonjour-service');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -373,8 +374,21 @@ app.listen(PORT, HOST, () => {
     console.log(`IT Ticketing System running on:`);
     console.log(`  Local:    http://localhost:${PORT}`);
     console.log(`  Network:  http://${getLocalIP()}:${PORT}`);
+    console.log(`  mDNS:     http://helpdesk.local:${PORT}`);
     console.log('Default admin credentials: username: admin, password: admin123');
-    console.log('\nTo access from other devices on your network, use the Network URL above');
+    console.log('\nTo access from other devices on your network, use any of the URLs above');
+    
+    // Start mDNS service
+    const bonjour = new Bonjour();
+    bonjour.publish({
+        name: 'IT Helpdesk System',
+        type: 'http',
+        port: PORT,
+        host: 'helpdesk.local'
+    });
+    
+    console.log('\n✓ mDNS service published as "helpdesk.local"');
+    console.log('  Note: It may take a few moments for the domain to be discoverable');
 });
 
 // Helper function to get local IP address
