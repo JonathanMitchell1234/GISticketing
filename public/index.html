@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IT Ticketing System</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">        <div class="nav-container">
+            <div class="nav-brand">
+                <img src="GIS-logo-3.png" alt="Graphic Information Systems" class="nav-logo">
+            </div>
+            <div class="nav-menu" id="navMenu">
+                <a href="#dashboard" class="nav-link active" onclick="showSection('dashboard')">
+                    <i class="fas fa-tachometer-alt"></i> Dashboard
+                </a>
+                <a href="#tickets" class="nav-link" onclick="showSection('tickets')">
+                    <i class="fas fa-list"></i> Tickets
+                </a>
+                <a href="#create-ticket" class="nav-link" onclick="showSection('create-ticket')">
+                    <i class="fas fa-plus"></i> New Ticket
+                </a>
+                <div class="nav-user" id="navUser" style="display: none;">
+                    <span id="username"></span>
+                    <button onclick="logout()" class="btn-logout">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Login Section -->
+    <div id="login-section" class="auth-container">
+        <div class="auth-card">
+            <div class="auth-header">
+                <i class="fas fa-ticket-alt"></i>
+                <h2>IT Help Desk Login</h2>
+            </div>
+            <form id="loginForm" class="auth-form">
+                <div class="form-group">
+                    <label for="loginUsername">Username</label>
+                    <input type="text" id="loginUsername" required>
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" required>
+                </div>
+                <button type="submit" class="btn-primary">Login</button>
+                <p class="auth-switch">
+                    Don't have an account? <a href="#" onclick="showRegister()">Register here</a>
+                </p>
+            </form>
+            <div class="demo-credentials">
+                <p><strong>Demo Credentials:</strong></p>
+                <p>Admin: username: <code>admin</code>, password: <code>admin123</code></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Register Section -->
+    <div id="register-section" class="auth-container" style="display: none;">
+        <div class="auth-card">
+            <div class="auth-header">
+                <i class="fas fa-user-plus"></i>
+                <h2>Register New Account</h2>
+            </div>
+            <form id="registerForm" class="auth-form">
+                <div class="form-group">
+                    <label for="registerUsername">Username</label>
+                    <input type="text" id="registerUsername" required>
+                </div>
+                <div class="form-group">
+                    <label for="registerEmail">Email</label>
+                    <input type="email" id="registerEmail" required>
+                </div>
+                <div class="form-group">
+                    <label for="registerPassword">Password</label>
+                    <input type="password" id="registerPassword" required>
+                </div>
+                <button type="submit" class="btn-primary">Register</button>
+                <p class="auth-switch">
+                    Already have an account? <a href="#" onclick="showLogin()">Login here</a>
+                </p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div id="main-content" style="display: none;">
+        <!-- Dashboard Section -->
+        <div id="dashboard" class="section active">
+            <div class="section-header">
+                <h2><i class="fas fa-tachometer-alt"></i> Dashboard</h2>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-ticket-alt"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="totalTickets">0</h3>
+                        <p>Total Tickets</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon open">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="openTickets">0</h3>
+                        <p>Open Tickets</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon progress">
+                        <i class="fas fa-cogs"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="progressTickets">0</h3>
+                        <p>In Progress</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon closed">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="closedTickets">0</h3>
+                        <p>Closed Tickets</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="recent-tickets">
+                <h3>Recent Tickets</h3>
+                <div id="recentTicketsList" class="tickets-list">
+                    <!-- Recent tickets will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Tickets Section -->
+        <div id="tickets" class="section">
+            <div class="section-header">
+                <h2><i class="fas fa-list"></i> All Tickets</h2>
+                <div class="filters">
+                    <select id="statusFilter" onchange="filterTickets()">
+                        <option value="">All Status</option>
+                        <option value="Open">Open</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="Closed">Closed</option>
+                    </select>
+                    <select id="priorityFilter" onchange="filterTickets()">
+                        <option value="">All Priority</option>
+                        <option value="Low">Low</option>
+                        <option value="Medium">Medium</option>
+                        <option value="High">High</option>
+                        <option value="Critical">Critical</option>
+                    </select>
+                </div>
+            </div>
+            <div id="ticketsList" class="tickets-list">
+                <!-- Tickets will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Create Ticket Section -->
+        <div id="create-ticket" class="section">
+            <div class="section-header">
+                <h2><i class="fas fa-plus"></i> Create New Ticket</h2>
+            </div>
+            <div class="ticket-form-container">
+                <form id="createTicketForm" class="ticket-form">
+                    <div class="form-group">
+                        <label for="ticketTitle">Title *</label>
+                        <input type="text" id="ticketTitle" required placeholder="Brief description of the issue">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="ticketPriority">Priority</label>
+                            <select id="ticketPriority">
+                                <option value="Low">Low</option>
+                                <option value="Medium" selected>Medium</option>
+                                <option value="High">High</option>
+                                <option value="Critical">Critical</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="ticketCategory">Category</label>
+                            <select id="ticketCategory">
+                                <option value="Hardware">Hardware</option>
+                                <option value="Software">Software</option>
+                                <option value="Network">Network</option>
+                                <option value="Account">Account Access</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="ticketDescription">Description *</label>
+                        <textarea id="ticketDescription" required rows="6" 
+                                  placeholder="Please provide detailed information about the issue, including steps to reproduce, error messages, etc."></textarea>
+                    </div>
+                    <button type="submit" class="btn-primary">
+                        <i class="fas fa-paper-plane"></i> Submit Ticket
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ticket Detail Modal -->
+    <div id="ticketModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Ticket Details</h3>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="ticketDetails"></div>
+                <div class="comments-section">
+                    <h4>Comments</h4>
+                    <div id="commentsList"></div>
+                    <form id="addCommentForm" class="comment-form">
+                        <textarea id="newComment" placeholder="Add a comment..." rows="3"></textarea>
+                        <button type="submit" class="btn-secondary">Add Comment</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" class="loading-spinner" style="display: none;">
+        <i class="fas fa-spinner fa-spin"></i>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast" class="toast"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>
