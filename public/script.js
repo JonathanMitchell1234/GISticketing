@@ -2,6 +2,49 @@
 let currentUser = null;
 let allTickets = [];
 let allUsers = [];
+let authToken = null; // Store authentication token
+
+// Token management functions
+function setAuthToken(token) {
+    authToken = token;
+    localStorage.setItem('authToken', token);
+}
+
+function getAuthToken() {
+    if (!authToken) {
+        authToken = localStorage.getItem('authToken');
+    }
+    return authToken;
+}
+
+function clearAuthToken() {
+    authToken = null;
+    localStorage.removeItem('authToken');
+}
+
+// Enhanced fetch function that includes authentication
+async function authenticatedFetch(url, options = {}) {
+    const token = getAuthToken();
+    
+    // Merge headers with authentication
+    const headers = {
+        'Content-Type': 'application/json',
+        ...options.headers
+    };
+    
+    // Add Authorization header if token exists
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    const requestOptions = {
+        ...options,
+        headers,
+        credentials: 'include' // Include cookies for cross-origin requests
+    };
+    
+    return fetch(url, requestOptions);
+}
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
@@ -35,17 +78,20 @@ function setupEventListeners() {
 // Authentication functions
 async function checkAuthentication() {
     try {
-        const response = await fetch('/api/me');
+        const response = await authenticatedFetch('/api/me');
         if (response.ok) {
             const data = await response.json();
             currentUser = data.user;
             showMainContent();
             loadDashboard();
         } else {
+            // Clear invalid token if authentication fails
+            clearAuthToken();
             showLogin();
         }
     } catch (error) {
         console.error('Authentication check failed:', error);
+        clearAuthToken();
         showLogin();
     }
 }
@@ -56,19 +102,18 @@ async function handleLogin(event) {
     const password = document.getElementById('loginPassword').value;
     
     try {
-        showLoading(true);
-        const response = await fetch('/api/login', {
+        showLoading(true);        const response = await authenticatedFetch('/api/login', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
             body: JSON.stringify({ username, password }),
         });
-        
-        const data = await response.json();
+          const data = await response.json();
         
         if (response.ok) {
             currentUser = data.user;
+            // Store the authentication token
+            if (data.token) {
+                setAuthToken(data.token);
+            }
             showToast('Login successful!', 'success');
             showMainContent();
             loadDashboard();
@@ -90,19 +135,18 @@ async function handleRegister(event) {
     const password = document.getElementById('registerPassword').value;
     
     try {
-        showLoading(true);
-        const response = await fetch('/api/register', {
+        showLoading(true);        const response = await authenticatedFetch('/api/register', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
             body: JSON.stringify({ username, email, password }),
         });
         
         const data = await response.json();
-        
-        if (response.ok) {
+          if (response.ok) {
             currentUser = data.user;
+            // Store the authentication token
+            if (data.token) {
+                setAuthToken(data.token);
+            }
             showToast('Registration successful!', 'success');
             showMainContent();
             loadDashboard();
@@ -119,8 +163,9 @@ async function handleRegister(event) {
 
 async function logout() {
     try {
-        await fetch('/api/logout', { method: 'POST' });
+        await authenticatedFetch('/api/logout', { method: 'POST' });
         currentUser = null;
+        clearAuthToken(); // Clear the stored token
         showToast('Logged out successfully', 'success');
         showLogin();
     } catch (error) {
@@ -193,9 +238,8 @@ function showSection(sectionName) {
 async function loadDashboard() {
     try {
         showLoading(true);
-        
-        // Load stats
-        const statsResponse = await fetch('/api/stats');
+          // Load stats
+        const statsResponse = await authenticatedFetch('/api/stats');
         const stats = await statsResponse.json();
         
         document.getElementById('totalTickets').textContent = stats.total;
@@ -204,7 +248,7 @@ async function loadDashboard() {
         document.getElementById('closedTickets').textContent = stats.closed;
         
         // Load recent tickets
-        const ticketsResponse = await fetch('/api/tickets');
+        const ticketsResponse = await authenticatedFetch('/api/tickets');
         const tickets = await ticketsResponse.json();
         
         allTickets = tickets;
@@ -250,8 +294,7 @@ function displayRecentTickets(tickets) {
 async function loadTickets() {
     try {
         showLoading(true);
-        
-        const response = await fetch('/api/tickets');
+          const response = await authenticatedFetch('/api/tickets');
         const tickets = await response.json();
         
         allTickets = tickets;
@@ -259,7 +302,7 @@ async function loadTickets() {
         
         // Load users for admin
         if (currentUser.role === 'admin') {
-            const usersResponse = await fetch('/api/users');
+            const usersResponse = await authenticatedFetch('/api/users');
             allUsers = await usersResponse.json();
         }
         
@@ -327,12 +370,8 @@ async function handleCreateTicket(event) {
     const category = document.getElementById('ticketCategory').value;
     
     try {
-        showLoading(true);
-          const response = await fetch('/api/tickets', {
+        showLoading(true);          const response = await authenticatedFetch('/api/tickets', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
             body: JSON.stringify({ title, description, priority, category }),
         });
         
@@ -372,9 +411,8 @@ async function openTicketModal(ticketId) {
     
     try {
         showLoading(true);
-        
-        // Load comments
-        const commentsResponse = await fetch(`/api/tickets/${ticketId}/comments`);
+          // Load comments
+        const commentsResponse = await authenticatedFetch(`/api/tickets/${ticketId}/comments`);
         const comments = await commentsResponse.json();
         
         displayTicketModal(ticket, comments);
@@ -499,12 +537,8 @@ async function updateTicket(ticketId) {
     const priority = document.getElementById('modalPriority')?.value;
     const assigned_to = document.getElementById('modalAssignee')?.value || null;
     
-    try {
-        const response = await fetch(`/api/tickets/${ticketId}`, {
+    try {        const response = await authenticatedFetch(`/api/tickets/${ticketId}`, {
             method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-            },
             body: JSON.stringify({ status, priority, assigned_to }),
         });
         
@@ -544,11 +578,10 @@ async function deleteTicket(ticketId) {
     if (!confirm('Are you sure you want to delete this ticket? This action cannot be undone.')) {
         return;
     }
-    
-    try {
+      try {
         showLoading(true);
         
-        const response = await fetch(`/api/tickets/${ticketId}`, {
+        const response = await authenticatedFetch(`/api/tickets/${ticketId}`, {
             method: 'DELETE',
         });
         
@@ -591,13 +624,9 @@ async function handleAddComment(event) {
     // Get ticket ID from modal title
     const modalTitle = document.getElementById('modalTitle').textContent;
     const ticketId = modalTitle.match(/#(\d+)/)[1];
-    
-    try {
-        const response = await fetch(`/api/tickets/${ticketId}/comments`, {
+      try {
+        const response = await authenticatedFetch(`/api/tickets/${ticketId}/comments`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
             body: JSON.stringify({ comment }),
         });
         
@@ -608,7 +637,7 @@ async function handleAddComment(event) {
             document.getElementById('newComment').value = '';
             
             // Reload comments
-            const commentsResponse = await fetch(`/api/tickets/${ticketId}/comments`);
+            const commentsResponse = await authenticatedFetch(`/api/tickets/${ticketId}/comments`);
             const comments = await commentsResponse.json();
             displayComments(comments);
         } else {

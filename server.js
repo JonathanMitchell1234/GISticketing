@@ -1,4 +1,6 @@
 const express = require('express');
+const https = require('https');
+const fs = require('fs');
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -9,14 +11,82 @@ const { Bonjour } = require('bonjour-service');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const HTTPS_PORT = process.env.HTTPS_PORT || 3443;
 const HOST = process.env.HOST || '0.0.0.0'; // Bind to all network interfaces
 const JWT_SECRET = 'your-secret-key-change-in-production';
+
+// CORS Configuration for SharePoint integration
+const corsOptions = {
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+          // List of allowed origins
+        const allowedOrigins = [
+            'http://localhost:3000',
+            'https://localhost:3443',
+            'http://helpdesk.local:3000',
+            'https://helpdesk.local:3443',
+            /^https:\/\/.*\.sharepoint\.com$/,  // SharePoint Online
+            /^https:\/\/.*\.sharepointonline\.com$/,  // SharePoint Online alternative
+            /^https:\/\/.*\.office\.com$/,  // Office 365
+            /^http:\/\/localhost:\d+$/,  // Local development
+            /^https:\/\/localhost:\d+$/,  // Local development HTTPS
+            /^https?:\/\/192\.168\.\d+\.\d+:\d+$/,  // Local network IP addresses
+            /^https?:\/\/10\.\d+\.\d+\.\d+:\d+$/,  // Private network 10.x.x.x
+            /^https?:\/\/172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+:\d+$/,  // Private network 172.16-31.x.x
+        ];
+          // Check if origin is allowed
+        const isAllowed = allowedOrigins.some(allowed => {
+            if (typeof allowed === 'string') {
+                return origin === allowed;
+            } else if (allowed instanceof RegExp) {
+                return allowed.test(origin);
+            }
+            return false;
+        });
+        
+        if (isAllowed) {
+            console.log('CORS allowed origin:', origin);
+            callback(null, true);
+        } else {
+            console.log('CORS blocked origin:', origin);
+            console.log('Allowed origins patterns:', allowedOrigins);
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true, // Allow cookies to be sent
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+        'Content-Type', 
+        'Authorization', 
+        'X-Requested-With',
+        'Accept',
+        'Origin',
+        'Cache-Control'
+    ],
+    optionsSuccessStatus: 200 // Some legacy browsers (IE11, various SmartTVs) choke on 204
+};
 
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(cors());
+app.use(cors(corsOptions));
+
+// Additional headers for SharePoint and iframe compatibility
+app.use((req, res, next) => {
+    // Allow embedding in iframes (for SharePoint web parts)
+    res.setHeader('X-Frame-Options', 'ALLOWALL');
+    res.setHeader('Content-Security-Policy', "frame-ancestors *;");
+    
+    // Cache control for static assets
+    if (req.url.match(/\.(css|js|png|jpg|jpeg|gif|ico|svg)$/)) {
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+    }
+    
+    next();
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Database setup
@@ -69,17 +139,31 @@ db.serialize(() => {
 
 // Authentication middleware
 const authenticateToken = (req, res, next) => {
-    const token = req.cookies.token;
+    // Try to get token from multiple sources
+    let token = req.cookies.token;
+    
+    // If no token in cookies, check Authorization header
+    if (!token) {
+        const authHeader = req.headers.authorization;
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            token = authHeader.substring(7);
+        }
+    }
+    
+    // If still no token, check for token in request body or query (for development)
+    if (!token) {
+        token = req.body.token || req.query.token;
+    }
     
     if (!token) {
-        console.log('No token found in cookies');
+        console.log('No token found in cookies, headers, or body');
         return res.status(401).json({ error: 'Access denied - Please log in again' });
     }
 
     try {
         const verified = jwt.verify(token, JWT_SECRET);
         req.user = verified;
-        console.log('User authenticated:', req.user.username);
+        console.log('User authenticated:', req.user.username, 'via', req.cookies.token ? 'cookie' : 'header/body');
         next();
     } catch (error) {
         console.log('Token verification failed:', error.message);
@@ -123,18 +207,26 @@ app.post('/api/register', async (req, res) => {
                     }
                     return res.status(500).json({ error: 'Registration failed' });
                 }
-                
-                const token = jwt.sign(
+                  const token = jwt.sign(
                     { id: this.lastID, username, role: 'user' },
                     JWT_SECRET,
                     { expiresIn: '24h' }
                 );
-                  res.cookie('token', token, { 
+                
+                // Set cookie with proper settings for cross-origin
+                res.cookie('token', token, { 
                     httpOnly: true, 
                     maxAge: 24 * 60 * 60 * 1000,
-                    sameSite: 'lax'
+                    sameSite: 'none',
+                    secure: true // Required for SameSite=none
                 });
-                res.json({ message: 'Registration successful', user: { id: this.lastID, username, role: 'user' } });
+                
+                // Also send token in response for cross-origin scenarios
+                res.json({ 
+                    message: 'Registration successful', 
+                    user: { id: this.lastID, username, role: 'user' },
+                    token: token
+                });
             }
         );
     } catch (error) {
@@ -157,20 +249,25 @@ app.post('/api/login', async (req, res) => {
                 if (!user || !await bcrypt.compare(password, user.password)) {
                     return res.status(400).json({ error: 'Invalid credentials' });
                 }
-                
-                const token = jwt.sign(
+                  const token = jwt.sign(
                     { id: user.id, username: user.username, role: user.role },
                     JWT_SECRET,
                     { expiresIn: '24h' }
                 );
-                  res.cookie('token', token, { 
+                
+                // Set cookie with proper settings for cross-origin
+                res.cookie('token', token, { 
                     httpOnly: true, 
                     maxAge: 24 * 60 * 60 * 1000,
-                    sameSite: 'lax'
+                    sameSite: 'none',
+                    secure: true // Required for SameSite=none
                 });
+                
+                // Also send token in response for cross-origin scenarios where cookies might not work
                 res.json({ 
                     message: 'Login successful', 
-                    user: { id: user.id, username: user.username, role: user.role } 
+                    user: { id: user.id, username: user.username, role: user.role },
+                    token: token // Include token in response
                 });
             }
         );
@@ -387,15 +484,36 @@ app.get('/api/stats', authenticateToken, (req, res) => {
     });
 });
 
+// SSL Certificate configuration
+let httpsOptions = null;
+try {
+    httpsOptions = {
+        key: fs.readFileSync(path.join(__dirname, 'certs', 'server.key')),
+        cert: fs.readFileSync(path.join(__dirname, 'certs', 'server.crt'))
+    };
+} catch (error) {
+    console.log('SSL certificates not found. HTTPS will not be available.');
+    console.log('Run "node generate-cert.js" to generate SSL certificates.');
+}
+
+// Start HTTP server
 app.listen(PORT, HOST, () => {
     console.log(`IT Ticketing System running on:`);
-    console.log(`  Local:    http://localhost:${PORT}`);
-    console.log(`  Network:  http://${getLocalIP()}:${PORT}`);
-    console.log(`  mDNS:     http://helpdesk.local:${PORT}`);
+    console.log(`  Local HTTP:     http://localhost:${PORT}`);
+    console.log(`  Network HTTP:   http://${getLocalIP()}:${PORT}`);
+    console.log(`  mDNS HTTP:      http://helpdesk.local:${PORT}`);
+    
+    if (httpsOptions) {
+        console.log(`  Local HTTPS:    https://localhost:${HTTPS_PORT}`);
+        console.log(`  Network HTTPS:  https://${getLocalIP()}:${HTTPS_PORT}`);
+        console.log(`  mDNS HTTPS:     https://helpdesk.local:${HTTPS_PORT}`);
+    }
+    
     console.log('Default admin credentials: username: admin, password: admin123');
     console.log('\nTo access from other devices on your network, use any of the URLs above');
+    console.log('Note: For HTTPS, you may need to accept the security warning for the self-signed certificate');
     
-    // Start mDNS service
+    // Start mDNS service for HTTP
     const bonjour = new Bonjour();
     bonjour.publish({
         name: 'IT Helpdesk System',
@@ -407,6 +525,22 @@ app.listen(PORT, HOST, () => {
     console.log('\n✓ mDNS service published as "helpdesk.local"');
     console.log('  Note: It may take a few moments for the domain to be discoverable');
 });
+
+// Start HTTPS server if certificates are available
+if (httpsOptions) {
+    https.createServer(httpsOptions, app).listen(HTTPS_PORT, HOST, () => {
+        console.log(`✓ HTTPS server started on port ${HTTPS_PORT}`);
+        
+        // Start mDNS service for HTTPS
+        const bonjour = new Bonjour();
+        bonjour.publish({
+            name: 'IT Helpdesk System (HTTPS)',
+            type: 'https',
+            port: HTTPS_PORT,
+            host: 'helpdesk.local'
+        });
+    });
+}
 
 // Helper function to get local IP address
 function getLocalIP() {
