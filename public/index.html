@@ -5,13 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IT Ticketing System</title>
     <link rel="stylesheet" href="styles.css">
+    <!-- favicon -->
+    <link rel="icon" href="logo.svg" type="image/png">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
-<body>
-    <!-- Navigation -->
-    <nav class="navbar">        <div class="nav-container">
+<body>    <!-- Navigation -->
+    <nav class="navbar" id="mainNavbar"><div class="nav-container">
             <div class="nav-brand">
+                <a href="#dashboard" class="home" onclick="showSection('dashboard')">
                 <img src="GIS-logo-3.png" alt="Graphic Information Systems" class="nav-logo">
+            </a>
             </div>
             <div class="nav-menu" id="navMenu">
                 <a href="#dashboard" class="nav-link active" onclick="showSection('dashboard')">
@@ -34,10 +37,9 @@
     </nav>
 
     <!-- Login Section -->
-    <div id="login-section" class="auth-container">
-        <div class="auth-card">
+    <div id="login-section" class="auth-container">        <div class="auth-card">
             <div class="auth-header">
-                <i class="fas fa-ticket-alt"></i>
+                <img src="GIS-logo-3.png" alt="Graphic Information Systems" class="auth-logo" style="height: 60px; margin-bottom: 10px;">
                 <h2>IT Help Desk Login</h2>
             </div>
             <form id="loginForm" class="auth-form">
@@ -49,23 +51,17 @@
                     <label for="loginPassword">Password</label>
                     <input type="password" id="loginPassword" required>
                 </div>
-                <button type="submit" class="btn-primary">Login</button>
-                <p class="auth-switch">
+                <button type="submit" class="btn-primary">Login</button>                <p class="auth-switch">
                     Don't have an account? <a href="#" onclick="showRegister()">Register here</a>
                 </p>
             </form>
-            <div class="demo-credentials">
-                <p><strong>Demo Credentials:</strong></p>
-                <p>Admin: username: <code>admin</code>, password: <code>admin123</code></p>
-            </div>
         </div>
     </div>
 
     <!-- Register Section -->
-    <div id="register-section" class="auth-container" style="display: none;">
-        <div class="auth-card">
+    <div id="register-section" class="auth-container" style="display: none;">        <div class="auth-card">
             <div class="auth-header">
-                <i class="fas fa-user-plus"></i>
+                <img src="GIS-logo-3.png" alt="Graphic Information Systems" class="auth-logo" style="height: 60px; margin-bottom: 10px;">
                 <h2>Register New Account</h2>
             </div>
             <form id="registerForm" class="auth-form">

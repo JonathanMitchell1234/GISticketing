@@ -77,6 +77,9 @@ function setupEventListeners() {
 
 // Authentication functions
 async function checkAuthentication() {
+    // Initially hide navbar until we know the auth status
+    document.getElementById('mainNavbar').style.display = 'none';
+    
     try {
         const response = await authenticatedFetch('/api/me');
         if (response.ok) {
@@ -179,18 +182,21 @@ function showLogin() {
     document.getElementById('login-section').style.display = 'flex';
     document.getElementById('register-section').style.display = 'none';
     document.getElementById('main-content').style.display = 'none';
+    document.getElementById('mainNavbar').style.display = 'none'; // Hide navbar
 }
 
 function showRegister() {
     document.getElementById('login-section').style.display = 'none';
     document.getElementById('register-section').style.display = 'flex';
     document.getElementById('main-content').style.display = 'none';
+    document.getElementById('mainNavbar').style.display = 'none'; // Hide navbar
 }
 
 function showMainContent() {
     document.getElementById('login-section').style.display = 'none';
     document.getElementById('register-section').style.display = 'none';
     document.getElementById('main-content').style.display = 'block';
+    document.getElementById('mainNavbar').style.display = 'block'; // Show navbar
     
     // Update navigation
     document.getElementById('navUser').style.display = 'flex';
