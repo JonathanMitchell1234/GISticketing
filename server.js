@@ -17,25 +17,26 @@ const JWT_SECRET = 'your-secret-key-change-in-production';
 
 // CORS Configuration for SharePoint integration
 const corsOptions = {
-    origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps or curl requests)
+    origin: function (origin, callback) {        // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) return callback(null, true);
-          // List of allowed origins
+        
+        // List of allowed origins
         const allowedOrigins = [
             'http://localhost:3000',
             'https://localhost:3443',
             'http://helpdesk.local:3000',
             'https://helpdesk.local:3443',
+            'https://graphicinfohelpdesk.vercel.app',  // Vercel hosted frontend
             /^https:\/\/.*\.sharepoint\.com$/,  // SharePoint Online
             /^https:\/\/.*\.sharepointonline\.com$/,  // SharePoint Online alternative
             /^https:\/\/.*\.office\.com$/,  // Office 365
             /^http:\/\/localhost:\d+$/,  // Local development
             /^https:\/\/localhost:\d+$/,  // Local development HTTPS
             /^https?:\/\/192\.168\.\d+\.\d+:\d+$/,  // Local network IP addresses
-            /^https?:\/\/10\.\d+\.\d+\.\d+:\d+$/,  // Private network 10.x.x.x
-            /^https?:\/\/172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+:\d+$/,  // Private network 172.16-31.x.x
+            /^https?:\/\/10\.\d+\.\d+\.\d+:\d+$/,  // Private network 10.x.x.x            /^https?:\/\/172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+:\d+$/,  // Private network 172.16-31.x.x
         ];
-          // Check if origin is allowed
+        
+        // Check if origin is allowed
         const isAllowed = allowedOrigins.some(allowed => {
             if (typeof allowed === 'string') {
                 return origin === allowed;
