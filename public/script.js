@@ -1,3 +1,16 @@
+// Backend Configuration for Vercel Deployment
+const API_CONFIG = {
+    // Your backend server is hosted at this IP address
+    BASE_URL: 'https://192.168.21.94:3443',
+    // Fallback to HTTP if HTTPS doesn't work
+    BASE_URL_HTTP: 'http://192.168.21.94:3000'
+};
+
+// Helper function to build full API URLs
+function getApiUrl(endpoint) {
+    return `${API_CONFIG.BASE_URL}${endpoint}`;
+}
+
 // Global variables
 let currentUser = null;
 let allTickets = [];
@@ -23,8 +36,11 @@ function clearAuthToken() {
 }
 
 // Enhanced fetch function that includes authentication
-async function authenticatedFetch(url, options = {}) {
+async function authenticatedFetch(endpoint, options = {}) {
     const token = getAuthToken();
+    
+    // Build full URL - if endpoint already includes protocol, use as-is, otherwise prepend base URL
+    const url = endpoint.startsWith('http') ? endpoint : getApiUrl(endpoint);
     
     // Merge headers with authentication
     const headers = {
@@ -43,6 +59,7 @@ async function authenticatedFetch(url, options = {}) {
         credentials: 'include' // Include cookies for cross-origin requests
     };
     
+    console.log(`Making API request to: ${url}`); // Debug logging
     return fetch(url, requestOptions);
 }
 
