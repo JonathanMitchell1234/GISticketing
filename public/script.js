@@ -2,16 +2,13 @@
 const API_CONFIG = {
     // Your backend server is hosted at this IP address
     BASE_URL: 'https://192.168.21.94:3443',
-    // Fallback to HTTP if HTTPS doesn't work
-    BASE_URL_HTTP: 'http://192.168.21.94:3000',
-    // Use HTTP by default to avoid SSL certificate issues
-    USE_HTTP: false // Set to true if you want to start with HTTP
+    // HTTPS is required for Vercel (HTTPS) to backend communication
+    // Mixed content (HTTPS->HTTP) is blocked by browsers
 };
 
 // Helper function to build full API URLs
 function getApiUrl(endpoint) {
-    const baseUrl = API_CONFIG.USE_HTTP ? API_CONFIG.BASE_URL_HTTP : API_CONFIG.BASE_URL;
-    return `${baseUrl}${endpoint}`;
+    return `${API_CONFIG.BASE_URL}${endpoint}`;
 }
 
 // Global variables
@@ -38,23 +35,7 @@ function clearAuthToken() {
     localStorage.removeItem('authToken');
 }
 
-// Function to switch to HTTP mode when HTTPS fails
-function switchToHttp() {
-    console.log('Switching to HTTP mode due to HTTPS certificate issues');
-    API_CONFIG.USE_HTTP = true;
-    localStorage.setItem('useHttp', 'true');
-}
-
-// Function to check if we should use HTTP (from previous sessions)
-function checkHttpPreference() {
-    const useHttp = localStorage.getItem('useHttp');
-    if (useHttp === 'true') {
-        API_CONFIG.USE_HTTP = true;
-        console.log('Using HTTP mode based on previous preference');
-    }
-}
-
-// Enhanced fetch function that includes authentication with HTTPS fallback
+// Enhanced fetch function that includes authentication
 async function authenticatedFetch(endpoint, options = {}) {
     const token = getAuthToken();
     
@@ -84,24 +65,15 @@ async function authenticatedFetch(endpoint, options = {}) {
         const response = await fetch(url, requestOptions);
         return response;
     } catch (error) {
-        console.warn(`Request failed: ${error.message}`);
+        console.error(`HTTPS request failed: ${error.message}`);
         
-        // If HTTPS fails and we're using HTTPS, try HTTP fallback
-        if (url.includes('https://192.168.21.94:3443') && !API_CONFIG.USE_HTTP) {
-            console.log('HTTPS failed, switching to HTTP mode');
-            switchToHttp();
-            
-            // Rebuild URL with HTTP
-            const httpUrl = getApiUrl(endpoint);
-            console.log(`Trying HTTP fallback: ${httpUrl}`);
-            
-            try {
-                const response = await fetch(httpUrl, requestOptions);
-                return response;
-            } catch (httpError) {
-                console.error(`HTTP fallback also failed: ${httpError.message}`);
-                throw httpError;
-            }
+        // Provide helpful error message for mixed content issues
+        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+            console.error('🚨 BACKEND CONNECTION ISSUE:');
+            console.error('1. Ensure HTTPS server is running on port 3443');
+            console.error('2. Check SSL certificate is properly configured');
+            console.error('3. Verify firewall allows port 3443');
+            console.error('4. Mixed content (HTTPS->HTTP) is blocked by browsers');
         }
         
         throw error;
@@ -110,9 +82,6 @@ async function authenticatedFetch(endpoint, options = {}) {
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
-    // Check if we should use HTTP based on previous sessions
-    checkHttpPreference();
-    
     console.log(`Backend URL: ${getApiUrl('')}`);
     checkAuthentication();
     setupEventListeners();
@@ -752,31 +721,19 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Testing and debugging functions
-function toggleHttpMode() {
-    API_CONFIG.USE_HTTP = !API_CONFIG.USE_HTTP;
-    if (API_CONFIG.USE_HTTP) {
-        localStorage.setItem('useHttp', 'true');
-        console.log('Switched to HTTP mode');
-    } else {
-        localStorage.removeItem('useHttp');
-        console.log('Switched to HTTPS mode');
-    }
-    console.log(`Current backend URL: ${getApiUrl('')}`);
-}
-
 // Test connection function
 async function testConnection() {
     try {
-        console.log('Testing connection...');
+        console.log('Testing HTTPS connection...');
         const response = await authenticatedFetch('/api/me');
         console.log(`Connection test result: ${response.status}`);
         if (response.status === 401) {
-            console.log('✅ Connection successful! (401 expected without auth)');
+            console.log('✅ HTTPS connection successful! (401 expected without auth)');
         } else if (response.ok) {
-            console.log('✅ Connection successful and authenticated!');
+            console.log('✅ HTTPS connection successful and authenticated!');
         }
     } catch (error) {
-        console.error('❌ Connection test failed:', error);
+        console.error('❌ HTTPS connection test failed:', error);
+        console.error('💡 Make sure the HTTPS server is running on port 3443');
     }
 }
